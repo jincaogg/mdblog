@@ -2,6 +2,7 @@ mdblog
 ======
 
 静态博客生成程序
+[http://redmast.com]
 
 ###目录:
     - bin 脚本存放目录

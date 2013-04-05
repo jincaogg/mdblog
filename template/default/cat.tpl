@@ -7,9 +7,10 @@
     <div class='container'>
         <div class='row'>
              <div class='span9'>
+                <h3><%=list_title></h3>
                 <%foreach li in post_list%>
                     <div class='row'>
-                        <div class='span6'><a href="<%@li['url']>"><%@li['title']></a></div>
+                        <div class='span7'><a href="/<%@li['url']>"><%@li['title']></a></div>
                         <div class='span2'><small><%@li['date']></small></div>
                     </div>
                     <hr></hr>

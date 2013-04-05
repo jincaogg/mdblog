@@ -17,11 +17,10 @@
 <%=body>
 </xmp>
 <div class='container'>
-<div class='span12'>
+<div>
 <style>
 #disqus_thread{ 
     border-top: 1px solid #CCCCCC;
-    margin:0 30px 0 -30px;
     padding-top: 30px;
 }
 .toc{
@@ -37,7 +36,6 @@
 }
 
 </style>
-<script src="/res/js/jquery-1.8.0.min.js"></script>
 <div id="disqus_thread"></div>
 
 <script type="text/javascript">

@@ -18,10 +18,9 @@ class Md:
                     print(" input:" + filepath)
                     path_split=os.path.split(dirpath)
                     type_str=(path_split[1],'default')['.'==path_split[0]]
-                    #print type_str
                     input_file = open(filepath)
                     size=os.path.getsize(filepath)
-                    mtime=os.path.getmtime(filepath)
+                    mtime=os.path.getctime(filepath)
                     text = input_file.read()
                     input_file.close()
                     
@@ -57,9 +56,6 @@ class Md:
         
         if conf['type']=='':
             conf['type']='post'
-        
-        
-        #print conf
         return conf,body 
 
 class Db:
@@ -69,10 +65,11 @@ class Db:
     cur=None
     keys=('type','date','url','title','cat','tags','body','md5','mtime','size')
 
-    def __init__(self,db_file=':memory:'):
+    def __init__(self,keys=('type','date','url','title','cat','tags','body','md5','mtime','size'),
+                      db_file=':memory:'):
+        self.keys=keys
         self.connect(db_file)
         self.create()
-    
     
     def connect(self,db_file=':memory:'):
         self.conn=sqlite3.connect(db_file)
@@ -98,11 +95,10 @@ class Db:
                 v=row[k]
                 values.append(v)
         sql_insert="insert into content(%s) values(%s)" % (','.join(fields),','.join(vals))
-        #print sql_insert,values
         self.cur.execute(sql_insert,values)
 
-    def select(self,where='1=1'):
-        for one in self.cur.execute("select * from content where %s" % where):
+    def select(self,where='1=1',fields='*'):
+        for one in self.cur.execute("select %s from content where %s" % (fields,where)):
             yield one
 
 class Tpl:
@@ -128,7 +124,6 @@ class Tpl:
     def parse(self,file_path,data):
         txt=self.parseInc(file_path)
         txt=self.parseList(txt,data)
-        #print txt,data
         return self.parseVar(txt,data)
     
     def parseInc(self,file_path):
@@ -140,7 +135,6 @@ class Tpl:
     def parseVar(self,txt,data):
         var_re=re.compile(r'<%=([a-zA-Z0-9_]+)>')
         parse_txt=var_re.sub(lambda m:data.get(m.group(1),''),txt)
-        #print parse_txt
         return parse_txt 
     
     def parseList(self,txt,data):
@@ -149,7 +143,6 @@ class Tpl:
         bl=re.compile(r'<%@([a-zA-Z0-9_\[\]\'\"]+)>')
         end_re=re.compile(r'<%end%>')
         rest=''
-        #rept_t=''
         i=foreach_re.search(txt)
         if i!= None :    
             (i_str,idata_str)=i.groups()
@@ -179,7 +172,6 @@ class Tpl:
         else:
             return rest
 
-
     def write(self,cur_dir,row,tpl='content.tpl',filename=''):
         if filename=='' :
             filename=row['url']
@@ -195,11 +187,9 @@ class Tpl:
         f.write(post)
         f.close()
 
-
 class blog:
     '''
     MD Blog 生成工具
-
     '''
     dir_content=''
     db=None
@@ -214,6 +204,8 @@ class blog:
     def gen(self):
         self.db=Db()
 
+        db_tags=Db(('type','date','url','title','cat','tag','mtime'));
+
         tp=self.tp 
         db=self.db 
         cur_dir=self.cur_dir
@@ -221,6 +213,18 @@ class blog:
         #load db
         for i in Md().loop(os.path.join(cur_dir,self.dir_content)):
             db.add(i)
+            tags=i['tags'].split(',')
+            if len(tags)>0:
+                for tag in tags:
+                    row={'tag':tag.strip()}
+                    for f in db_tags.keys :
+                        if f!= 'tag':
+                            row[f]=i[f]
+                    db_tags.add(row)
+       
+        top_list=[]
+        for i in db.select('type="post" order by mtime desc limit 10'):
+            top_list.append(i)
 
         #page gen
         pages=[]
@@ -228,28 +232,58 @@ class blog:
             i=dict(i)
             pages.append(i)
             tp.write(cur_dir,i,'page.tpl')
+
+        #gen cats
+        cats=[]
+        for i in db.select('type="post" group by cat','count(1) as post_count,cat as cat_str'):
+            i=dict(i)
+            i['count']=str(i['post_count'])
+            cats.append(i)
+        #
+        tags=[]
+        for i in db_tags.select('type="post" group by tag order by count(1) desc','count(1) as tag_count,tag as tag_str'):
+            i=dict(i)
+            i['count']=str(i['tag_count'])
+            if len(i['tag_str'])>0:
+                tags.append(i)
+
+        #gen cats
+        for i in cats:
+            cat_list=[]
+            for j in db.select('type="post" and cat="%s" order by mtime ' %  i['cat_str']):
+                j=dict(j)
+                cat_list.append(j)
+            
+            catlist={'post_list':cat_list,'top_list':top_list,'page_nav':pages,'cats':cats,'tags':tags,'list_title':i['cat_str'],'title':'分类：'+i['cat_str']}
+            tp.write(cur_dir,catlist,'cat.tpl','cat/%s.htm' % i['cat_str'])    
         
+        #gen tags
+        for i in tags:
+            tag_list=[]
+            for j in db_tags.select('type="post" and tag="%s" order by mtime' % i['tag_str']):
+                j=dict(j)
+                tag_list.append(j)
+            taglist={'post_list':tag_list,'top_list':top_list,'page_nav':pages,'cats':cats,'tags':tags,'list_title':i['tag_str'],'title':'Tag：'+i['tag_str']}
+            tp.write(cur_dir,taglist,'cat.tpl','tag/%s.htm' % i['tag_str'])
+
         #gen index
-        index={'news_list':[],'top_list':[],'title':'首页','page_nav':pages}
+        index={'news_list':[],'top_list':top_list,'title':'首页','page_nav':pages,'cats':cats,'tags':tags}
         for i in db.select('type="post" order by mtime desc limit 3'):
             i=dict(i)
             if len(i['body'])>1000:
-                i['body']=i['body'][:1000]
+                i['body']="\n"+i['body'][:1000].lstrip()
             index['news_list'].append(i)
-        
-        for i in db.select('type="post" order by mtime desc limit 10'):
-            index['top_list'].append(i)
-        
         tp.write(cur_dir,index,'index.tpl','index.htm')
         
-        alllist={'post_list':[],'top_list':index['top_list'],'page_nav':pages,'title':'列表'}
-        #gen contents
+        #gen content list
+        alllist={'post_list':[],'top_list':index['top_list'],'page_nav':pages,'cats':cats,'tags':tags,'cat_str':'所有文章','title':'列表'}
+        
         for i in db.select('type="post" order by mtime desc '):
             i=dict(i)
             i['page_nav']=pages
             tp.write(cur_dir,i,'content.tpl')
             if len(i['body'])>300:
-                i['body']=i['body'][:300]
+                i['body']='\n'+i['body'][:300].lstrip()
         
             alllist['post_list'].append(i)
         tp.write(cur_dir,alllist,'cat.tpl','list.htm')    
@@ -261,10 +295,6 @@ class blog:
             i['page_nav']=pages
             pages.append(i)
             tp.write(cur_dir,i,'page.tpl')
-        
-        #gen arctive 
-        #gen tags
 
 if __name__=='__main__':
     blog('default','content','public','template').gen()
-
