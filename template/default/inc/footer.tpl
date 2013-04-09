@@ -1,4 +1,5 @@
 <script src="/res/strapdown.js"></script>
+<script src="/res/js/bootstrap.min.js"></script>
 <script>
 //使用marked直接转码没有做色
 $.each($('xxmp'),function(k,v){
