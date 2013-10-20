@@ -111,7 +111,7 @@ class Tpl:
     def __init__(self,theme_name='default',dir_out='public',dir_tpl='template'):
         self.theme=theme_name 
         self.dir_out=dir_out
-        old_cwd=os.getcwd()
+        old_cwd=os.path.dirname(os.path.realpath(__file__))+'/../'
         tpl_dir=os.path.join(old_cwd,dir_tpl,theme_name)
         #print tpl_dir
         os.chdir(tpl_dir)
@@ -197,7 +197,7 @@ class blog:
     tp=None
 
     def __init__(self,theme_name='default',dir_content='content',dir_out='public',dir_tpl='template'):
-        self.cur_dir=os.getcwd()
+        self.cur_dir=os.path.dirname(os.path.realpath(__file__))+'/../'
         self.dir_content=dir_content
         self.tp=Tpl(theme_name,dir_out,dir_tpl)
 
@@ -211,16 +211,17 @@ class blog:
         cur_dir=self.cur_dir
         
         #load db
-        for i in Md().loop(os.path.join(cur_dir,self.dir_content)):
+        for i in Md().loop(self.dir_content):
             db.add(i)
             tags=i['tags'].split(',')
             if len(tags)>0:
                 for tag in tags:
-                    row={'tag':tag.strip()}
-                    for f in db_tags.keys :
-                        if f!= 'tag':
+                    row={'tag':tag.strip()}                    
+                    for f in db_tags.keys:
+                        if f != 'tag':
                             row[f]=i[f]
                     db_tags.add(row)
+                    
        
         top_list=[]
         for i in db.select('type="post" order by mtime desc limit 10'):
@@ -270,8 +271,8 @@ class blog:
         index={'news_list':[],'top_list':top_list,'title':'首页','page_nav':pages,'cats':cats,'tags':tags}
         for i in db.select('type="post" order by mtime desc limit 3'):
             i=dict(i)
-            if len(i['body'])>1000:
-                i['body']="\n"+i['body'][:1000].lstrip()
+            if len(i['body'])>300:
+                i['body']="\n"+i['body'].decode('utf-8')[:300].encode('utf-8').lstrip()
             index['news_list'].append(i)
         tp.write(cur_dir,index,'index.tpl','index.htm')
         
@@ -282,8 +283,8 @@ class blog:
             i=dict(i)
             i['page_nav']=pages
             tp.write(cur_dir,i,'content.tpl')
-            if len(i['body'])>300:
-                i['body']='\n'+i['body'][:300].lstrip()
+            if len(i['body'])>200:
+                i['body']='\n'+i['body'][:150].lstrip()
         
             alllist['post_list'].append(i)
         tp.write(cur_dir,alllist,'cat.tpl','list.htm')    
@@ -297,4 +298,7 @@ class blog:
             tp.write(cur_dir,i,'page.tpl')
 
 if __name__=='__main__':
-    blog('default','content','public','template').gen()
+    cur_dir=os.path.dirname(os.path.realpath(__file__))+'/../'
+    content='/Users/jc/Dropbox/Apps/mdblog/content/'
+    #content=cur_dir+'content'
+    blog('default',content,'public','template').gen()
