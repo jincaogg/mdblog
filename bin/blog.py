@@ -3,6 +3,8 @@
 import os,re,sqlite3
 import sys
 import os.path
+import datetime
+import locale
 
 class Md:
     def loop(self,startdir,ext='.md'):
@@ -20,16 +22,27 @@ class Md:
                     type_str=(path_split[1],'default')['.'==path_split[0]]
                     input_file = open(filepath)
                     size=os.path.getsize(filepath)
-                    mtime=os.path.getctime(filepath)
+                    ctime=os.path.getctime(filepath)
                     text = input_file.read()
                     input_file.close()
+
+
                     
                     (conf,body)=self.look(text)
                     conf['size']=size
-                    conf['mtime']=mtime
-                    conf['cat']=type_str
+                    conf['mtime']=ctime
+                    conf['cat']=type_str.decode(locale.getpreferredencoding()).encode('utf-8').replace('\\','/')
                     conf['body']=body
-                    conf['url']=filepath.replace('.md','.htm')[2:]#.replace(os.path.sep,'_').replace(r'.','')
+                    conf['url']=filepath.replace('.md','.htm')[2:].decode(locale.getpreferredencoding()).encode('utf-8').replace('\\','/')#.replace(r'.','')
+                    
+                    if conf['date'] == '':
+                        conf['date']=datetime.date.fromtimestamp(ctime).strftime("%Y-%m-%d %H:%I")
+
+                    if conf['title'] == '':
+                        conf['title']=os.path.splitext(filename)[0].decode(locale.getpreferredencoding()).encode('utf-8')
+
+
+                    
                     yield conf
         os.chdir(old_cwd)
 
@@ -37,18 +50,21 @@ class Md:
         '''
         解析文本头的参数
         '''
+        conf={}
+        body=text
         key_str=('type','date','title','tags')
 
         re_str=r'^('+'|'.join(key_str)+'): *(.*?) *\n.*?'
         match_str=r'^ *$'
         ress=re.search(match_str,text,re.M)
         #print ress.start(),ress.end()
-        res=re.findall(re_str,text[0:ress.start()],re.M+re.I)
-        body=text[ress.end():]
-        conf={}
-        for k,v in res:
-            k=str.lower(k)
-            conf[k]=v
+        if ress:
+            res=re.findall(re_str,text[0:ress.start()],re.M+re.I)
+            body=text[ress.end():]
+            
+            for k,v in res:
+                k=str.lower(k)
+                conf[k]=v
         
         for k in key_str:
             if k not in conf:
@@ -174,9 +190,10 @@ class Tpl:
 
     def write(self,cur_dir,row,tpl='content.tpl',filename=''):
         if filename=='' :
-            filename=row['url']
+            filename=row['url'].decode('utf-8').encode(locale.getpreferredencoding()).replace('/',os.sep)
 
         to_file=os.path.join(cur_dir,self.dir_out,filename)
+        to_file=os.path.normpath(to_file)
         to_dir=os.path.dirname(to_file)
         if not os.path.isdir(to_dir):
             os.makedirs(to_dir)
@@ -256,7 +273,7 @@ class blog:
                 cat_list.append(j)
             
             catlist={'post_list':cat_list,'top_list':top_list,'page_nav':pages,'cats':cats,'tags':tags,'list_title':i['cat_str'],'title':'分类：'+i['cat_str']}
-            tp.write(cur_dir,catlist,'cat.tpl','cat/%s.htm' % i['cat_str'])    
+            tp.write(cur_dir,catlist,'cat.tpl','cat/%s.htm' % i['cat_str'].decode('utf-8').encode(locale.getpreferredencoding()))    
         
         #gen tags
         for i in tags:
