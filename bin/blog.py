@@ -299,6 +299,6 @@ class blog:
 
 if __name__=='__main__':
     cur_dir=os.path.dirname(os.path.realpath(__file__))+'/../'
-    content='/Users/jc/Dropbox/Apps/mdblog/content/'
-    #content=cur_dir+'content'
+    #content='/Users/jc/Dropbox/Apps/mdblog/content/'
+    content=cur_dir+'content'
     blog('default',content,'public','template').gen()
